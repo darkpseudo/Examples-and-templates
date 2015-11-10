@@ -1,0 +1,147 @@
+#!/usr/bin/python2.7
+# coding: utf-8
+
+print("Chargement des librairies de base")
+import numpy as np
+import sys
+import datetime
+import time
+import matplotlib.pyplot as pl
+
+print("Chargement d'autres librairies dont sklearn")
+from dateutil.parser import parse
+import pandas as pd
+import numpy as np
+from sklearn import ensemble, preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Lasso
+from sklearn import decomposition, pipeline, metrics, grid_search
+from sklearn.svm import SVR
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.metrics  import roc_curve, auc
+from sklearn.linear_model import LogisticRegression
+from sklearn.qda import QDA
+from sklearn.lda import LDA
+from sklearn.linear_model import Ridge
+from sklearn import tree
+from sklearn.kernel_approximation import RBFSampler
+from sklearn.linear_model import SGDClassifier
+from sklearn.cross_validation import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import make_moons, make_circles, make_classification
+from sklearn.neighbors import KNeighborsClassifier 
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.decomposition import PCA
+from sklearn import ensemble, preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Lasso
+from sklearn import decomposition, pipeline, metrics, grid_search
+
+
+############################# Debut du traitement des données
+#Import des tables dans des variables qui ne changeront pas.
+print('Chargement des tables')
+print('\n' )
+dates_strings = ['liste des variables qui sont des dates']
+
+data_train_true = pd.read_csv('Chemin du fichier train'
+  ,encoding = 'utf-8',parse_dates=dates_strings)#, na_values = [Si on a des valeurs dont on sait qu'elles sont équivalente à des NA])
+
+
+#Separation des valeurs numériques et non numériques
+print("Separation numerique non numerique")
+print('\n' )
+data_train_numeric = data_train.select_dtypes(include=[np.number])
+data_train_chars = data_train.select_dtypes(exclude=[np.number])
+
+#Probablement non optimal
+for s in data_train_chars.columns:
+	if s in data_train_numeric.columns:
+		data_train_numeric = data_train_numeric.drop(s,1)
+
+#On prend les dates
+print("Prise des dates sous le bon format")
+print('\n')
+time_format = '%y-%b-%d'
+data_train_dates = data_train[dates_strings]
+data_train_chars = data_train_chars.drop(dates_strings,1)
+for s in data_train_dates.columns:
+	data_train_dates[s] = pd.Series(pd.to_datetime(data_train_dates[s],
+	 format=time_format), index=range(len(data_train_dates[s])))
+	print(s)
+
+
+#Formatage des dates
+print("On met les dates en timestamp")
+print('\n')
+for s in data_train_dates.columns:
+	ts = data_train_dates[s].values
+	ts = (ts - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+	ts = ts/(3600*24)
+	ts = pd.Series(ts,index = range(len(ts)))
+	data_train_dates = data_train_dates.drop(s,axis = 1)
+	data_train_dates[s] = ts
+	print(s)
+
+#Encodage des string
+print("On hash le reste des string")
+print('\n')
+i = 0
+le = preprocessing.LabelEncoder()
+for s in data_trian_chars.columns:
+	print(s)
+	tmp = le.fit_transform([y for y in data_train_chars[s].values])
+	data_train_chars[s] =  pd.Series(tmp , index=range(len(data_train_chars[s])))
+	i = i+1
+
+data_train_chars = data_train_chars.fillna(-1.)
+data_train_dates = data_train_dates.fillna(-1.)
+data_train_numeric = data_train_numeric.fillna(-1.)
+
+#On remet data train dans le bon sens
+print("Remise de data train sous le bon format")
+print('\n')
+data_train_final = data_train_numeric.join(data_train_dates)
+data_train_final = data_train_final.join(data_train_chars)
+data_train_final = data_train_final.sort(columns = 'Id')
+data_train = data_train_final
+
+data_train_array = data_train.values
+data_train_feats = data_train_array[:,1:]
+IDs = data_train_array[:,0]
+
+X_final=data_train_feats
+
+#############Fin du traitement des données
+print("Debut de l'apprentissage")
+print('\n')
+print("Prise de l'ensemble d'entrainement et de validation")
+print('\n')
+X_learn = data_train_feats[:len(data_train_feats)*9/10,:-1]
+X_train = data_train_feats[len(data_train_feats)*9/10:,:-1]
+Y_learn = data_train_feats[:len(data_train_feats)*9/10,-1]
+Y_test  = data_train_feats[len(data_train_feats)*9/10:,-1]
+
+print("Début de l'apprentissage")
+print('\n')
+model =  RandomForestClassifier() #On peux mettre le modèle qu'on veux, ici je ne précise aucun paramètre
+model.fit(X_learn,Y_learn)
+
+print("Application du modèle sur les données de validation")
+print('\n')
+Y_proba=model.predict_proba(X_test)
+
+print("Dessin de la courbe Roc")
+print('\n')
+#Courbe Roc
+fpr, tpr, _ = roc_curve(Y_test, Y_proba[:,1])
+roc_auc = auc(fpr, tpr)
+print(roc_auc)
+pl.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % roc_auc)
+pl.show()
+
